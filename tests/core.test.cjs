@@ -31,3 +31,12 @@ test('safety denylist blocks generation and destructive actions',()=>{
   for(const s of ['Créer','Create 10 credits','Générer','Supprimer','Delete song','Enregistrer','Publish','Create a Voice']) assert.equal(C.forbidden(s),true,s);
   for(const s of ['Test Voice','Cover','Extend','Inspiration','Workspaces','My music']) assert.equal(C.forbidden(s),false,s);
 });
+
+test('validation accepts Suno rich-editor whitespace normalization but not changed lyrics',()=>{
+  const expected='[Intro]\nBridge online.\n\n[Verse 1]\nOne pack in, three fields ready.\n\n[Chorus]\nSHINOBIWAN BRIDGE\nREADY WHEN I AM\n(test back)';
+  const normalized='[Intro]\nBridge online.\n[Verse 1]\nOne pack in, three fields ready.\n[Chorus]\nSHINOBIWAN BRIDGE\nREADY WHEN I AM\n(test back)';
+  assert.deepEqual(C.validateText('lyrics',expected,expected),{ok:true,mode:'exact'});
+  assert.deepEqual(C.validateText('lyrics',normalized,expected),{ok:true,mode:'normalized'});
+  assert.equal(C.validateText('lyrics',normalized.replace('READY','BROKEN'),expected).ok,false);
+  assert.equal(C.validateText('title','Test  V01','Test V01').ok,false);
+});
