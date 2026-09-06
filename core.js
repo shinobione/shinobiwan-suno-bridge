@@ -28,9 +28,17 @@
   const title = pack => pack.title.trim() + (pack.version.trim() ? ' — ' + pack.version.trim() : '');
   const stripTimes = lyrics => lyrics.replace(/^\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\][ \t]*/gm, '');
   const norm = text => String(text || '').replace(/\s+/g, ' ').trim();
+  const exactText = text => clean(text).replace(/\u00a0/g,' ').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+  const semanticText = text => exactText(text).replace(/\s+/g,' ').trim();
+  function validateText(kind, actual, expected) {
+    const aExact=exactText(actual), eExact=exactText(expected);
+    if(aExact===eExact) return {ok:true, mode:'exact'};
+    if((kind==='style'||kind==='lyrics') && semanticText(aExact)===semanticText(eExact)) return {ok:true, mode:'normalized'};
+    return {ok:false, mode:'mismatch', actualChars:aExact.length, expectedChars:eExact.length};
+  }
   // Deny destructive/submitting actions, including buttons with generation-credit labels.
   const forbidden = text => /(?:\b(?:create|créer|creer|generate|générer|generer|delete|supprimer|remove|retirer|publish|publier|purchase|buy|acheter|subscribe|abonner|save|enregistrer|confirm|confirmer|submit|envoyer|logout|déconnecter|upgrade)\b|credits?\b|crédits?\b)/i.test(text);
-  const api = {parse, title, stripTimes, norm, forbidden};
+  const api = {parse, title, stripTimes, norm, exactText, semanticText, validateText, forbidden};
   root.SunoBridgeCore = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
