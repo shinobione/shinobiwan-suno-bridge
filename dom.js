@@ -1,10 +1,10 @@
 (function(root){
   const C=root.SunoBridgeCore;
   const visible=el=>!!el&&!!el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';
-  const editable=el=>!!el&&el.matches('textarea,input:not([type]),input[type=text],input[type=search],[contenteditable=true],[contenteditable=plaintext-only]');
+  const editable=el=>!!el&&el.matches('textarea,input:not([type]),input[type=text],input[type=search],[contenteditable=true],[contenteditable=plaintext-only],[role=textbox],[data-lexical-editor=true],.ProseMirror');
   const norm=s=>C.norm(s).toLowerCase();
   const descriptor=el=>{
-    for(const attr of ['aria-label','placeholder','name','data-testid','id','title']){
+    for(const attr of ['aria-label','placeholder','name','data-testid','id','title','role']){
       const value=el.getAttribute(attr); if(value)return{tag:el.tagName.toLowerCase(),attr,value};
     }
     return null;
@@ -23,6 +23,7 @@
     style:['style','styles','style of music','music style'],
     lyrics:['lyrics','paroles','write lyrics','écrire des paroles','ecrire des paroles']
   };
+  const badStyle=/(exclude|excluded|exclure|exclus|negative style|style influence|influence du style|étrangeté|etrangete|weirdness|plus options|advanced options|options avancées)/i;
   function candidateScore(kind,el){
     const own=ownContext(el),near=nearbyContext(el,2);let score=0;
     for(const k of keywords[kind]){
@@ -35,21 +36,43 @@
       if(el.matches('[data-lexical-editor=true],.ProseMirror,[role=textbox]'))score+=5;
     }
     if(kind==='style'){
-      if(el.tagName==='TEXTAREA'||el.isContentEditable)score+=3;
-      // Suno's Advanced/Plus options contains fields such as Exclude styles and Style influence.
-      // They must never outrank the main Styles editor.
-      const bad=/(exclude|excluded|exclure|exclus|negative style|style influence|influence du style|étrangeté|etrangete|weirdness|plus options|advanced options|options avancées)/i;
-      if(bad.test(own))score-=40;
-      else if(bad.test(near))score-=18;
+      if(el.tagName==='TEXTAREA'||el.isContentEditable||el.matches('[role=textbox],[data-lexical-editor=true],.ProseMirror'))score+=3;
+      if(badStyle.test(own))score-=40;
+      else if(badStyle.test(near))score-=18;
     }
     if(kind==='title'&&el.tagName==='INPUT')score+=3;
     return score;
   }
+  const editSelector='textarea,input:not([type]),input[type=text],input[type=search],[contenteditable=true],[contenteditable=plaintext-only],[role=textbox],[data-lexical-editor=true],.ProseMirror';
+  function styleBySection(){
+    const labels=[...document.querySelectorAll('div,span,label,button,h1,h2,h3,h4,p')].filter(visible)
+      .filter(el=>['style','styles'].includes(norm(el.innerText||el.textContent)));
+    let best=null,bestScore=-Infinity;
+    for(const label of labels){
+      let box=label.parentElement,depth=0;
+      while(box&&depth++<5){
+        for(const el of [...box.querySelectorAll(editSelector)].filter(visible)){
+          const own=ownContext(el),near=nearbyContext(el,2);
+          if(badStyle.test(own)||badStyle.test(near))continue;
+          let score=30-(depth*3)+candidateScore('style',el);
+          const r1=label.getBoundingClientRect(),r2=el.getBoundingClientRect();
+          if(r2.top>=r1.top-20)score+=4;
+          if(Math.abs(r2.left-r1.left)<260)score+=3;
+          if(score>bestScore){best=el;bestScore=score;}
+        }
+        box=box.parentElement;
+      }
+    }
+    return best;
+  }
   function autoField(kind,manualMap={}){
     const manual=fromDescriptor(manualMap[kind]); if(manual&&editable(manual))return manual;
-    const selector='textarea,input:not([type]),input[type=text],input[type=search],[contenteditable=true],[contenteditable=plaintext-only]';
+    if(kind==='style'){
+      const section=styleBySection();
+      if(section)return section;
+    }
     let best=null,bestScore=0;
-    for(const el of [...document.querySelectorAll(selector)].filter(visible)){
+    for(const el of [...document.querySelectorAll(editSelector)].filter(visible)){
       const score=candidateScore(kind,el);
       if(score>bestScore){best=el;bestScore=score;}
     }
@@ -76,31 +99,22 @@
   }
   function replaceRichText(el,text){
     el.focus();
-
-    // Strategy 1: native editing-host Select All + insertText. Chromium scopes selectAll
-    // to the focused contenteditable and this lets React/Lexical/ProseMirror receive native edits.
     document.execCommand('selectAll',false,null);
     document.execCommand('insertText',false,text);
-
     if(C.semanticText(value(el))!==C.semanticText(text)){
-      // Strategy 2: explicit range deletion, then native insert.
       el.focus();selectContents(el);document.execCommand('delete',false,null);
       if(value(el).trim()){
         selectContents(el);document.execCommand('delete',false,null);
       }
       document.execCommand('insertText',false,text);
     }
-
     if(C.semanticText(value(el))!==C.semanticText(text)){
-      // Strategy 3: last-resort DOM reset + input event so controlled rich editors
-      // cannot preserve stale text from the previous draft.
       el.focus();
       el.replaceChildren();
       fireInput(el,'deleteContentBackward',null);
       el.textContent=text;
       fireInput(el,'insertText',text);
     }
-
     el.dispatchEvent(new Event('change',{bubbles:true}));
   }
   function write(el,text){
@@ -117,5 +131,5 @@
     if(!el)return 'introuvable';
     const d=descriptor(el);return `${el.tagName.toLowerCase()}${el.isContentEditable?'[contenteditable]':''}${d?` ${d.attr}="${d.value}"`:''}`;
   }
-  root.SunoBridgeDom={visible,editable,norm,descriptor,fromDescriptor,autoField,exactVisibleText,workflowOk,write,value,debugField,candidateScore};
+  root.SunoBridgeDom={visible,editable,norm,descriptor,fromDescriptor,autoField,exactVisibleText,workflowOk,write,value,debugField,candidateScore,styleBySection};
 })(globalThis);
