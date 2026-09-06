@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "SHINOBIWAN — Suno Bridge",
+  "version": "0.1.0",
+  "description": "Import assisté de packs titre, style et paroles. Profils de sélection guidés. Ne lance aucune génération.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "action": {"default_title": "Ouvrir Suno Bridge"},
+  "background": {"service_worker": "background.js"}
+}
