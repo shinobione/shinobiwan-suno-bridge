@@ -78,15 +78,96 @@
     }
     return bestScore>=4?best:null;
   }
+  // Suno uses both buttons/popovers and normal links for Workspace rows.
+  const choiceSelector='a[href],button,[role=button],[role=option],[role=menuitem],[role=radio],[aria-haspopup]';
+  const textOf=el=>norm(el?.innerText||el?.textContent||el?.getAttribute?.('aria-label')||'');
   function exactVisibleText(value,exclude){
     if(!value)return true; const wanted=norm(value);
-    return [...document.querySelectorAll('button,[role=button],[role=option],[role=menuitem],[aria-label],span,div')]
-      .some(el=>visible(el)&&!(exclude&&exclude.contains(el))&&norm(el.innerText||el.textContent)===wanted);
+    return [...document.querySelectorAll('a[href],button,[role=button],[role=option],[role=menuitem],[aria-label],span,div')]
+      .some(el=>visible(el)&&!(exclude&&exclude.contains(el))&&textOf(el)===wanted);
   }
   function workflowOk(value,exclude){
     if(!value)return true; const w=norm(value);
     if(['create','new','new track'].includes(w)&&/^\/create(?:\/|$)/.test(location.pathname))return true;
     return exactVisibleText(value,exclude);
+  }
+  function safeClickable(el,exclude){
+    if(!el||!visible(el)||(exclude&&exclude.contains(el)))return null;
+    const click=el.matches(choiceSelector)?el:el.closest(choiceSelector);
+    if(!click||!visible(click)||(exclude&&exclude.contains(click)))return null;
+    const label=(click.innerText||click.textContent||click.getAttribute('aria-label')||'').trim();
+    if(C.forbidden(label))return null;
+    if(click.disabled||click.getAttribute('aria-disabled')==='true')return null;
+    return click;
+  }
+  function triggerFor(kind,exclude){
+    const labels=kind==='workspace'?['workspaces','workspace']:['+ voice','voice','+ voix','voix'];
+    let best=null,bestScore=-Infinity;
+    for(const el of [...document.querySelectorAll(choiceSelector)].filter(visible)){
+      if(exclude&&exclude.contains(el))continue;
+      const t=textOf(el),own=ownContext(el);let score=0;
+      for(const label of labels){
+        if(t===label)score=Math.max(score,50);
+        else if(t.startsWith(label+' '))score=Math.max(score,35);
+        else if(own.includes(label))score=Math.max(score,25);
+      }
+      if(kind==='voice'&&/create a voice|créer une voix|creer une voix/.test(t))score-=100;
+      if(C.forbidden(t))score-=100;
+      if(score>bestScore){best=el;bestScore=score;}
+    }
+    return bestScore>=20?safeClickable(best,exclude):null;
+  }
+  function optionFor(value,exclude){
+    const wanted=norm(value);let best=null,bestScore=-Infinity;
+    for(const el of [...document.querySelectorAll(choiceSelector)].filter(visible)){
+      if(exclude&&exclude.contains(el))continue;
+      const click=safeClickable(el,exclude);if(!click)continue;
+      const t=textOf(el);let score=-Infinity;
+      if(t===wanted)score=60;
+      else if(t.startsWith(wanted+' '))score=35;
+      else continue;
+      const role=el.getAttribute('role');
+      if(role==='option'||role==='menuitem'||role==='radio')score+=10;
+      if(el.tagName==='A')score+=8;
+      if(el.getAttribute('aria-selected')==='true'||el.getAttribute('data-state')==='checked')score+=5;
+      if(score>bestScore){best=click;bestScore=score;}
+    }
+    return best;
+  }
+  function selectedChoice(kind,value,exclude){
+    if(!value)return false;const wanted=norm(value),trigger=triggerFor(kind,exclude);
+    if(trigger){
+      const t=textOf(trigger),ctx=nearbyContext(trigger,1);
+      if(t===wanted||ctx.includes(wanted))return true;
+    }
+    return [...document.querySelectorAll('[aria-selected=true],[aria-checked=true],[data-state=checked],[data-state=selected]')]
+      .some(el=>visible(el)&&!(exclude&&exclude.contains(el))&&textOf(el)===wanted);
+  }
+  async function selectNamed(kind,value,exclude,delay=ms=>new Promise(r=>setTimeout(r,ms))){
+    const wanted=String(value||'').trim();
+    if(!wanted)return{ok:true,mode:'skipped'};
+    if(selectedChoice(kind,wanted,exclude))return{ok:true,mode:'already'};
+
+    // Workspace can already be displayed as a full-page list. Prefer a visible exact row
+    // before trying to reopen the Workspaces control. The Voice dialog benefits too.
+    const visibleOption=optionFor(wanted,exclude);
+    if(visibleOption){
+      visibleOption.click();
+      await delay(kind==='workspace'?650:450);
+      const ok=selectedChoice(kind,wanted,exclude)||exactVisibleText(wanted,exclude);
+      return ok?{ok:true,mode:'selected-visible'}:{ok:false,stage:'confirm',message:`Sélection ${kind} non confirmée : ${wanted}.`};
+    }
+
+    const trigger=triggerFor(kind,exclude);
+    if(!trigger)return{ok:false,stage:'trigger',message:`Contrôle ${kind} introuvable.`};
+    trigger.click();
+    await delay(350);
+    const option=optionFor(wanted,exclude);
+    if(!option)return{ok:false,stage:'option',message:`${kind==='workspace'?'Workspace':'Voice'} “${wanted}” introuvable après ouverture du menu.`};
+    option.click();
+    await delay(kind==='workspace'?650:450);
+    const ok=selectedChoice(kind,wanted,exclude)||exactVisibleText(wanted,exclude);
+    return ok?{ok:true,mode:'selected'}:{ok:false,stage:'confirm',message:`Sélection ${kind} non confirmée : ${wanted}.`};
   }
   function selectContents(el){
     const sel=getSelection(),range=document.createRange();
@@ -131,5 +212,5 @@
     if(!el)return 'introuvable';
     const d=descriptor(el);return `${el.tagName.toLowerCase()}${el.isContentEditable?'[contenteditable]':''}${d?` ${d.attr}="${d.value}"`:''}`;
   }
-  root.SunoBridgeDom={visible,editable,norm,descriptor,fromDescriptor,autoField,exactVisibleText,workflowOk,write,value,debugField,candidateScore,styleBySection};
+  root.SunoBridgeDom={visible,editable,norm,descriptor,fromDescriptor,autoField,exactVisibleText,workflowOk,write,value,debugField,candidateScore,styleBySection,triggerFor,optionFor,selectedChoice,selectNamed,safeClickable};
 })(globalThis);

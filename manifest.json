@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SHINOBIWAN — Suno Bridge",
-  "version": "0.2.5",
-  "description": "Import assisté SHINOBIWAN avec détection intelligente des champs Suno. Ne lance aucune génération.",
+  "version": "0.3.0",
+  "description": "Import assisté SHINOBIWAN avec préparation Workspace + Voice. Ne lance aucune génération.",
   "permissions": ["activeTab", "scripting", "storage"],
   "action": {"default_title": "Ouvrir Suno Bridge"},
   "background": {"service_worker": "background.js"}

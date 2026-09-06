@@ -9,6 +9,9 @@ The normal SHINOBIWAN Track Manifest is already a valid import source. You can p
 ```text
 TITLE: TRACK TITLE
 VERSION: V01
+WORKFLOW: Create
+WORKSPACE: optional saved workspace name
+VOICE: optional saved voice name
 STYLE PROMPT: Your Suno style prompt
 
 LYRICS:
@@ -19,8 +22,6 @@ Lyrics
 
 The file picker is optional. It only exists for manifests already saved as `.txt` or JSON packs.
 
-The v0.2.1 dev panel also contains a **Charger exemple** button so the live Suno field detection can be tested without preparing any external file.
-
 ## Safety model
 
 - No Suno password, cookie or API token is requested or stored.
@@ -29,19 +30,29 @@ The v0.2.1 dev panel also contains a **Charger exemple** button so the live Suno
 - It never clicks **Create / Generate**.
 - `chrome.storage.local` stores only manual field mappings.
 - Source URLs are accepted only when they match a Suno `/song/` or `/s/` URL.
+- Workspace / Voice preparation only selects the exact requested visible name and refuses generation/destructive controls.
 
-## v0.2 development goals
+## Current status
+
+### v0.2.5 — live validated on Suno v5.5 Advanced
 
 - Parse JSON packs and SHINOBIWAN TXT manifests.
 - Accept pasted Track Manifests directly; no pack file required.
 - Preserve Suno lyrics syntax exactly.
 - Build titles with explicit versions such as `V01`, `Cover V02` or `Extend V03`.
-- Detect Title, Style and Lyrics fields automatically, with manual fallback mapping.
-- Scan the visible Suno UI for expected Workspace, Voice and workflow state.
-- Show optional Workspace / Voice / workflow / source states as neutral when no value was requested, rather than false-positive green checks.
-- Open a requested source track for Cover / Extend workflows.
+- Detect Title and Lyrics automatically.
+- Detect Style when possible, with one-time fallback calibration stored locally.
+- Replace existing content instead of appending.
 - Validate Title, Style and Lyrics after filling them.
 - Keep the final Suno generation click manual.
+
+### v0.3.0 — development
+
+- Read optional `WORKSPACE` and `VOICE` values from the manifest / JSON.
+- Open the matching Suno selectors safely.
+- Select an exact saved Workspace / Voice name.
+- Confirm the selected state before reporting success.
+- Keep missing optional context neutral rather than pretending it is selected.
 
 ## JSON pack format
 
@@ -60,9 +71,13 @@ The v0.2.1 dev panel also contains a **Charger exemple** button so the live Suno
 
 TXT manifests are supported when they contain `TITLE:`, `STYLE PROMPT:` and `LYRICS:`. Optional fields are `VERSION:`, `PROFILE:`, `WORKFLOW:`, `WORKSPACE:`, `VOICE:` and `SOURCE URL:`.
 
+## Music project integration
+
+The roadmap now includes a permanent target for the ChatGPT **Music** project: once a SHINOBIWAN track is generation-ready, the assistant should output a Bridge-ready JSON object alongside the normal human-readable Track Manifest. See [`ROADMAP.md`](ROADMAP.md) for the canonical schema and constraints.
+
 ## Development branch
 
-Current work: `dev/v0.2-smart-detection`.
+Current work: `dev/v0.3-context-selectors`.
 
 Run checks locally with Node 22+:
 
