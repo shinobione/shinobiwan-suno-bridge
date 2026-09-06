@@ -78,11 +78,12 @@
     }
     return bestScore>=4?best:null;
   }
-  const choiceSelector='button,[role=button],[role=option],[role=menuitem],[role=radio],[aria-haspopup]';
+  // Suno uses both buttons/popovers and normal links for Workspace rows.
+  const choiceSelector='a[href],button,[role=button],[role=option],[role=menuitem],[role=radio],[aria-haspopup]';
   const textOf=el=>norm(el?.innerText||el?.textContent||el?.getAttribute?.('aria-label')||'');
   function exactVisibleText(value,exclude){
     if(!value)return true; const wanted=norm(value);
-    return [...document.querySelectorAll('button,[role=button],[role=option],[role=menuitem],[aria-label],span,div')]
+    return [...document.querySelectorAll('a[href],button,[role=button],[role=option],[role=menuitem],[aria-label],span,div')]
       .some(el=>visible(el)&&!(exclude&&exclude.contains(el))&&textOf(el)===wanted);
   }
   function workflowOk(value,exclude){
@@ -127,6 +128,7 @@
       else continue;
       const role=el.getAttribute('role');
       if(role==='option'||role==='menuitem'||role==='radio')score+=10;
+      if(el.tagName==='A')score+=8;
       if(el.getAttribute('aria-selected')==='true'||el.getAttribute('data-state')==='checked')score+=5;
       if(score>bestScore){best=click;bestScore=score;}
     }
@@ -145,6 +147,17 @@
     const wanted=String(value||'').trim();
     if(!wanted)return{ok:true,mode:'skipped'};
     if(selectedChoice(kind,wanted,exclude))return{ok:true,mode:'already'};
+
+    // Workspace can already be displayed as a full-page list. Prefer a visible exact row
+    // before trying to reopen the Workspaces control. The Voice dialog benefits too.
+    const visibleOption=optionFor(wanted,exclude);
+    if(visibleOption){
+      visibleOption.click();
+      await delay(kind==='workspace'?650:450);
+      const ok=selectedChoice(kind,wanted,exclude)||exactVisibleText(wanted,exclude);
+      return ok?{ok:true,mode:'selected-visible'}:{ok:false,stage:'confirm',message:`Sélection ${kind} non confirmée : ${wanted}.`};
+    }
+
     const trigger=triggerFor(kind,exclude);
     if(!trigger)return{ok:false,stage:'trigger',message:`Contrôle ${kind} introuvable.`};
     trigger.click();
@@ -152,7 +165,7 @@
     const option=optionFor(wanted,exclude);
     if(!option)return{ok:false,stage:'option',message:`${kind==='workspace'?'Workspace':'Voice'} “${wanted}” introuvable après ouverture du menu.`};
     option.click();
-    await delay(450);
+    await delay(kind==='workspace'?650:450);
     const ok=selectedChoice(kind,wanted,exclude)||exactVisibleText(wanted,exclude);
     return ok?{ok:true,mode:'selected'}:{ok:false,stage:'confirm',message:`Sélection ${kind} non confirmée : ${wanted}.`};
   }
