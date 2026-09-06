@@ -1,6 +1,25 @@
 # SHINOBIWAN — Suno Bridge
 
-Chrome / Edge extension for preparing Suno creations from a single SHINOBIWAN pack.
+Chrome / Edge extension for preparing Suno creations from a single SHINOBIWAN Track Manifest or JSON pack.
+
+## Important: no special pack file is required
+
+The normal SHINOBIWAN Track Manifest is already a valid import source. You can paste directly into the extension the block that contains at least:
+
+```text
+TITLE: TRACK TITLE
+VERSION: V01
+STYLE PROMPT: Your Suno style prompt
+
+LYRICS:
+[Verse 1]
+Lyrics
+(backs)
+```
+
+The file picker is optional. It only exists for manifests already saved as `.txt` or JSON packs.
+
+The v0.2.1 dev panel also contains a **Charger exemple** button so the live Suno field detection can be tested without preparing any external file.
 
 ## Safety model
 
@@ -14,15 +33,17 @@ Chrome / Edge extension for preparing Suno creations from a single SHINOBIWAN pa
 ## v0.2 development goals
 
 - Parse JSON packs and SHINOBIWAN TXT manifests.
+- Accept pasted Track Manifests directly; no pack file required.
 - Preserve Suno lyrics syntax exactly.
 - Build titles with explicit versions such as `V01`, `Cover V02` or `Extend V03`.
 - Detect Title, Style and Lyrics fields automatically, with manual fallback mapping.
 - Scan the visible Suno UI for expected Workspace, Voice and workflow state.
+- Show optional Workspace / Voice / workflow / source states as neutral when no value was requested, rather than false-positive green checks.
 - Open a requested source track for Cover / Extend workflows.
 - Validate Title, Style and Lyrics after filling them.
 - Keep the final Suno generation click manual.
 
-## Pack format
+## JSON pack format
 
 ```json
 {
@@ -37,7 +58,7 @@ Chrome / Edge extension for preparing Suno creations from a single SHINOBIWAN pa
 }
 ```
 
-Legacy TXT manifests are also supported when they contain `TITLE:`, `STYLE PROMPT:` and `LYRICS:`. Optional fields are `VERSION:`, `PROFILE:`, `WORKFLOW:`, `WORKSPACE:`, `VOICE:` and `SOURCE URL:`.
+TXT manifests are supported when they contain `TITLE:`, `STYLE PROMPT:` and `LYRICS:`. Optional fields are `VERSION:`, `PROFILE:`, `WORKFLOW:`, `WORKSPACE:`, `VOICE:` and `SOURCE URL:`.
 
 ## Development branch
 
