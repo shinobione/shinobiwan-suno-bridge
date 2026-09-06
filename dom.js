@@ -44,6 +44,25 @@
     if(['create','new','new track'].includes(w)&&/^\/create(?:\/|$)/.test(location.pathname))return true;
     return exactVisibleText(value,exclude);
   }
+  function selectContents(el){
+    const sel=getSelection(),range=document.createRange();
+    range.selectNodeContents(el);sel.removeAllRanges();sel.addRange(range);
+  }
+  function replaceRichText(el,text){
+    el.focus();
+    selectContents(el);
+    // Suno's rich lyrics editor can append when insertText is used on a selected range.
+    // Delete the selected editor contents explicitly first, then insert once.
+    document.execCommand('delete',false,null);
+    if(value(el).trim()){
+      // A second deletion handles editors that leave a generated paragraph/node behind.
+      selectContents(el);
+      document.execCommand('delete',false,null);
+    }
+    if(!document.execCommand('insertText',false,text))throw Error('Éditeur riche non compatible.');
+    el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:text}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+  }
   function write(el,text){
     el.focus();
     if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'){
@@ -51,11 +70,7 @@
       Object.getOwnPropertyDescriptor(proto,'value').set.call(el,text);
       el.dispatchEvent(new Event('input',{bubbles:true}));
       el.dispatchEvent(new Event('change',{bubbles:true}));
-    }else{
-      const sel=getSelection(),range=document.createRange();range.selectNodeContents(el);sel.removeAllRanges();sel.addRange(range);
-      if(!document.execCommand('insertText',false,text))throw Error('Éditeur riche non compatible.');
-      el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:text}));
-    }
+    }else replaceRichText(el,text);
     el.blur();
   }
   const value=el=>('value'in el?el.value:el.innerText).replace(/\r\n?/g,'\n');
